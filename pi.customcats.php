@@ -50,7 +50,7 @@ class Customcats {
       $mult = 1;
       $r = 0;
       foreach ($trail as $parent_cat) {
-        $r += $parent_cat['order'];
+        $r += $mult * $parent_cat['order'];
         $mult *= 100;
       }
 
