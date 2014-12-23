@@ -34,8 +34,8 @@ class Customcats {
   function first_child_trail() {
     $groups = ee()->TMPL->fetch_param('show_group', null);
     $entry_id = ee()->TMPL->fetch_param('entry_id', 0);
-    $title_field = ee()->TMP->fetch_param('title_field', 'cat_name');
-    $sep = ee()->TMP->fetch_param('sep', ' - ');
+    $title_field = ee()->TMPL->fetch_param('title_field', 'cat_name');
+    $sep = ee()->TMPL->fetch_param('sep', ' - ');
 
     $cats = $this->_get_categories($entry_id, $groups);
     $parents = array_map(array($this, '_get_parents'), $cats);
@@ -53,6 +53,10 @@ class Customcats {
         $r += $parent_cat['order'];
         $mult *= 100;
       }
+
+      // down-rank if category is top-level
+      if (count($trail) == 1) $r += 1e6;
+
       $rank[$cat_id] = $r;
     }
 
@@ -60,13 +64,12 @@ class Customcats {
     $min_array = array_keys($rank, min($rank));
     $top_cat_id = $min_array[0];
 
-    // now we have a trail
+    // now we can make a title trail
     $trail = array_reverse($cats[$top_cat_id]);
-    $trail[] = $top_cat_id;
 
     // render for display
-    $get_titles = function($cat_id) use ($title_field) {
-      return $this->_get_title($title_field, $cat_id);
+    $get_titles = function($cat) use ($title_field) {
+      return $this->_get_title($title_field, $cat['id']);
     };
     $title_trail = array_map($get_titles, $trail);
 
@@ -105,18 +108,32 @@ class Customcats {
    */
   private function _get_parents($cat_id) {
     if ($cat_id == 0) return null;
+
+    // stick the initial child at the top
+    $results = ee()->db->select('*')
+      ->from('categories')
+      ->where('cat_id', $cat_id)
+      ->get();
+    $row = $results->result_array();
+
     $trail = array();
-    do {
+    $trail[] = array('id' => $cat_id,
+                    'order' => $row[0]['cat_order']);
+    $parent_id = $row['0']['parent_id'];
+
+    while ($parent_id != 0) {
       $results = ee()->db->select('*')
         ->from('categories')
-        ->where('cat_id', $cat_id)
+        ->where('cat_id', $parent_id)
         ->get();
       $row = $results->result_array();
-      $cat_id = $row['parent_id'];
-      $trail[] = array('id' => $cat_id,
-                      'order' => $row['cat_order']);
-    } while ($cat_id != 0);
-    
+
+      $trail[] = array('id' => $parent_id,
+                      'order' => $row[0]['cat_order']);
+
+      $parent_id = $row[0]['parent_id'];
+    }
+
     return $trail;
   }
 
@@ -128,7 +145,17 @@ class Customcats {
    * @param int Category ID
    * @return string
    */
-  private function _get_title($field, $cat_id) {
+  private function _get_title($field = 'cat_name', $cat_id) {
+    // try title from custom field?
+    if ($field != 'cat_name') {
+      $results = ee()->db->select('*')
+        ->from('category_fields')
+        ->where('field_name', $field)
+        ->get();
+      $field_row = $results->result_array();
+      if (!$field_row) $field = 'cat_name';
+    }
+
     // simple title
     if ($field == 'cat_name') {
       $results = ee()->db->select('*')
@@ -136,25 +163,19 @@ class Customcats {
         ->where('cat_id', $cat_id)
         ->get();
       $row = $results->result_array();
-      return $row['cat_name'];
+      if (!$row) return null;
+      return $row[0]['cat_name'];
     }
 
     // title from custom field
-    $results = ee()->db->select('*')
-      ->from('category_fields')
-      ->where('field_name', $field)
-      ->get();
-    $row = $results->result_array();
-    if (!$row) return null;
-    $field_id = $row['field_id'];
-
+    $field_id = $field_row[0]['field_id'];
     $results = ee()->db->select('*')
       ->from('category_field_data')
       ->where('cat_id', $cat_id)
       ->get();
     $row = $results->result_array();
 
-    return $row['field_id_'.$field_id];
+    return $row[0]['field_id_'.$field_id];
   }
 
   /** 
