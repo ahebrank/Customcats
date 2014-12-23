@@ -32,12 +32,12 @@ class Customcats {
    * @return string
    */
   function first_child_trail() {
-    $groups = ee()->TMPL->fetch_param('show_groups', 0);
+    $groups = ee()->TMPL->fetch_param('show_groups', null);
     $entry_id = ee()->TMPL->fetch_param('entry_id', 0);
     $title_field = ee()->TMP->fetch_param('title_field', 'cat_name');
     $sep = ee()->TMP->fetch_param('sep', ' - ');
 
-    $cats = $this->_get_categories($entry_id);
+    $cats = $this->_get_categories($entry_id, $groups);
     $parents = array_map(array($this, '_get_parents'), $cats);
 
     // now we have an array indexed by category, where each value is a parent trail array
@@ -80,11 +80,17 @@ class Customcats {
    * @param int Entry ID
    * @return array
    */
-  private function _get_categories($entry_id) {
-    $results = ee()->db->select('cat_id')
-      ->from('category_posts')
-      ->where('entry_id', $entry_id)
-      ->get();
+  private function _get_categories($entry_id, $groups = null) {
+    ee()->db->select('cp.cat_id')
+      ->from('category_posts cp')
+      ->where('cp.entry_id', $entry_id);
+    if (!is_null($groups)) {
+      // filter by group ID
+      $groups = explode('|', $groups);
+      ee()->db->join('categories c', 'cp.cat_id = c.cat_id')
+        ->where_in('c.group_id', $groups);
+    }
+    $results = ee()->db->get();
     $get_cat_id = function($row) { return $row['cat_id']; };
     return array_map($get_cat_id, $results->result_array());
   }
@@ -164,5 +170,5 @@ class Customcats {
 <?php
     return ob_get_clean();
   }
-  
+
 }
