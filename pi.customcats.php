@@ -27,6 +27,10 @@ class Customcats {
 
   /** 
    * Get the first child and all its parents
+   * this is useful in the particular case where you want a breadcrumb-type trail of category titles
+   * but only want the first child branch (by category order) to show up
+   *
+   * multilingual support through specification of a custom field to use instead of the category name
    *
    * @access public
    * @return string
