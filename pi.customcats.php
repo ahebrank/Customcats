@@ -32,7 +32,7 @@ class Customcats {
    * @return string
    */
   function first_child_trail() {
-    $groups = ee()->TMPL->fetch_param('show_groups', null);
+    $groups = ee()->TMPL->fetch_param('show_group', null);
     $entry_id = ee()->TMPL->fetch_param('entry_id', 0);
     $title_field = ee()->TMP->fetch_param('title_field', 'cat_name');
     $sep = ee()->TMP->fetch_param('sep', ' - ');
